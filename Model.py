@@ -2,13 +2,55 @@ import math
 import random
 from numbers import Number
 
+class Model:
+    """
+    Represents the ML model in the library.
+
+    The model is a collection of nodes, which are created when the model is
+    initialized. The model can be run on an input vector, which sends the
+    vector through each node and produces an output vector.
+
+    Attributes:
+        nodes: A list of Node objects that make up the model.
+    """
+    def __init__(self, num_nodes):
+        self.nodes = []
+        self.create_model(num_nodes)
+
+    def create_model(self, num_nodes):
+        """
+        Creates the specified number of nodes for the model.
+        """
+        for i in range(num_nodes):
+            node = Node(i)
+            self.nodes.append(node)
+
+    def model_run(self, input):
+        """
+        Runs the model on an input vector and returns the output vector.
+        """
+        for node in self.nodes:
+            node.node_run(input)
+            output = node.output
+      
+        
 
 class Node:
     """
-    This class represents the structure of a node in this
-    ML library.
+    Represents one recurrent node in the ML library.
+
+    A node stores the latest input vector, output vector, and cell state
+    vector. Each run sends the merged input through three cells:
+        1: forget cell, which controls how much old cell state remains
+        2: input cell, which creates new candidate state values
+        3: output cell, which gates the visible node output
 
     Attributes:
+        node_number: Identifier for this node.
+        input: Most recent input vector passed to node_run().
+        output: Most recent output vector produced by the node.
+        cellstate: Internal memory vector carried between runs.
+        cells: The forget, input, and output cells used by the node.
     """
     def __init__(self, node_number):
         self.node_number = node_number
@@ -19,13 +61,40 @@ class Node:
         self.create_node()
 
     def node_run(self, input):
+        """
+        Runs the node on an input vector and updates cellstate and output.
+        """
         self.input = input
+        if self.cellstate is None:
+            self.cellstate = [0 for _ in self.input]
         vector = self.merge_input()
+
         for i in range(len(self.cells)):
-            self.cells[i].cell_run(self.input)
+            # sets output for each cell, which is stored in the cell object
+            self.cells[i].cell_run(vector)
+
+        self.cellstate = [
+            (state_value * forget_value) + input_value
+            for state_value, forget_value, input_value in zip(
+                self.cellstate,
+                self.cells[0].output,
+                self.cells[1].output
+            )
+        ]
+
+        self.output = [
+            tanh_value * output_value
+            for tanh_value, output_value in zip(
+                self.cells[2].tanh(self.cellstate),
+                self.cells[2].output
+            )
+        ]
 
 
     def create_node(self):
+        """
+        Creates the forget, input, and output cells for this node.
+        """
         cell1 = Cell(1)
         self.cells.append(cell1)
         cell2 = Cell(2)
@@ -35,10 +104,13 @@ class Node:
 
 
     def merge_input(self):
+        """
+        Combines the current input vector with the previous output vector.
+        """
         if not self.output:
             return self.input
         else:
-            for i in range(self.input):
+            for i in range(len(self.input)):
                 self.input[i] = self.input[i] + self.output[i]
             return self.input
         
