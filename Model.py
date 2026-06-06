@@ -11,9 +11,11 @@ class Model:
     vector through each node and produces an output vector.
 
     Attributes:
+        input_size: The fixed size of input vectors passed into the model.
         nodes: A list of Node objects that make up the model.
     """
-    def __init__(self, num_nodes):
+    def __init__(self, num_nodes, input_size):
+        self.input_size = input_size
         self.nodes = []
         self.create_model(num_nodes)
 
@@ -22,7 +24,7 @@ class Model:
         Creates the specified number of nodes for the model.
         """
         for i in range(num_nodes):
-            node = Node(i)
+            node = Node(i, self.input_size)
             self.nodes.append(node)
 
     def model_run(self, input):
@@ -47,13 +49,15 @@ class Node:
 
     Attributes:
         node_number: Identifier for this node.
+        input_size: The fixed size of vectors this node accepts.
         input: Most recent input vector passed to node_run().
         output: Most recent output vector produced by the node.
         cellstate: Internal memory vector carried between runs.
         cells: The forget, input, and output cells used by the node.
     """
-    def __init__(self, node_number):
+    def __init__(self, node_number, input_size):
         self.node_number = node_number
+        self.input_size = input_size
         self.input = None
         self.output = None
         self.cellstate = None
@@ -65,6 +69,9 @@ class Node:
         Runs the node on an input vector and updates cellstate and output.
         """
         self.input = input
+        if len(self.input) != self.input_size:
+            raise ValueError("input must be the same size as the node input size")
+
         if self.cellstate is None:
             self.cellstate = [0 for _ in self.input]
         vector = self.merge_input()
@@ -74,20 +81,13 @@ class Node:
             self.cells[i].cell_run(vector)
 
         self.cellstate = [
-            (state_value * forget_value) + input_value
-            for state_value, forget_value, input_value in zip(
-                self.cellstate,
-                self.cells[0].output,
-                self.cells[1].output
-            )
+            (state_value * self.cells[0].output) + self.cells[1].output
+            for state_value in self.cellstate
         ]
 
         self.output = [
-            tanh_value * output_value
-            for tanh_value, output_value in zip(
-                self.cells[2].tanh(self.cellstate),
-                self.cells[2].output
-            )
+            tanh_value * self.cells[2].output
+            for tanh_value in self.cells[2].tanh(self.cellstate)
         ]
 
 
@@ -95,11 +95,11 @@ class Node:
         """
         Creates the forget, input, and output cells for this node.
         """
-        cell1 = Cell(1)
+        cell1 = Cell(1, self.input_size)
         self.cells.append(cell1)
-        cell2 = Cell(2)
+        cell2 = Cell(2, self.input_size)
         self.cells.append(cell2)
-        cell3 = Cell(3)
+        cell3 = Cell(3, self.input_size)
         self.cells.append(cell3)
 
 
@@ -119,9 +119,10 @@ class Cell:
     """
     Represents one calculation cell in the ML library.
 
-    A cell is created with a form number, then receives a list of input
-    values when cell_run() is called. The form controls how the list is
-    processed, and the result is stored in self.output.
+    A cell is created with a form number and fixed input size, then receives
+    a matching list of input values when cell_run() is called. The form
+    controls how the list is processed, and the result is stored in
+    self.output.
 
     Attributes:
         input: The most recent list of numbers passed into cell_run().
@@ -129,17 +130,19 @@ class Cell:
             1: forget cell
             2: input cell
             3: output cell
-        weight: The cell weight. Forget cells use 1, and other cells
-            start with a small random value.
-        bias: The cell bias. This currently starts at 0.
+        weights: The cell weights. Each weight starts as a small random value.
+        input_size: The fixed size of the input vector after setup.
+        bias: The cell bias. Forget cells start at 1, and other cells
+            start at 0.
         output: The most recent output from cell_run().
     """
 
-    def __init__(self, form):      
+    def __init__(self, form, input_size):      
         self.form = form
         self.input = None  
-        self.weight = None
-        self.bias = 0
+        self.input_size = input_size
+        self.weights = None
+        self.bias = 1 if self.form == 1 else 0
         self.output = None
         self.cell_setup()
 
@@ -147,26 +150,26 @@ class Cell:
         """
         Runs the cell calculation on a list of numbers.
 
-        Forget and output cells apply sigmoid to each value. Input cells
-        multiply each sigmoid result by the matching tanh result.
+        The input is multiplied by the cell's weight vector, then summed
+        with the bias. Forget and output cells apply sigmoid to that value.
+        Input cells multiply sigmoid(value) by tanh(value).
         """
         self.input = input
+        if len(self.input) != self.input_size:
+            raise ValueError("input must be the same size as the cell weights")
+
+        weighted_input = self.dot_product(self.input, self.weights) + self.bias
+
         if self.form == 1 or self.form == 3:
-            self.output = self.sigmoid(self.input)
+            self.output = self.sigmoid([weighted_input])[0]
         
         if self.form == 2:
-            self.output = [
-                sigmoid_value * tanh_value
-                for sigmoid_value, tanh_value in zip(
-                    self.sigmoid(self.input),
-                    self.tanh(self.input)
-                )
-            ]
+            self.output = self.sigmoid([weighted_input])[0] * self.tanh([weighted_input])[0]
         
 
     def cell_setup(self):
         """
-        Validates the cell form and creates the starting weight.
+        Validates the cell form and creates the starting weights.
         """
         if self.form < 1 or self.form > 3:
             raise ValueError("form must be between 1 and 3")
@@ -174,11 +177,16 @@ class Cell:
         if not isinstance(self.form, int):
             raise TypeError("form must be an integer")
         
-        if self.form == 1:
-            self.weight = 1
+        self.weights = [
+            random.uniform(-0.01, 0.01)
+            for _ in range(self.input_size)
+        ]
 
-        else:
-            self.weight = random.uniform(-0.01, 0.01)
+    def dot_product(self, input, weights):
+        """
+        Multiplies each input by its matching weight and sums the results.
+        """
+        return sum(input_value * weight for input_value, weight in zip(input, weights))
             
 
     def sigmoid(self, input):
