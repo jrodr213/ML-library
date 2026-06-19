@@ -1,6 +1,7 @@
 import math
 import random    
 
+
 class Node:
     """
     Represents one recurrent node in the ML library.
@@ -31,7 +32,7 @@ class Node:
         self.cells = []
         self.create_node()
 
-    def node_run(self, input):
+    def node_run(self, input, previous_hidden):
         """
         Runs the node on an input vector and updates cellstate and output.
         """
@@ -41,7 +42,7 @@ class Node:
         if self.cellstate is None:
             self.cellstate = 0
 
-        vector = self.merge_input(input)
+        vector = previous_hidden + input
 
         for i in range(len(self.cells)):
             # sets output for each cell, which is stored in the cell object
@@ -90,16 +91,6 @@ class Node:
             cell4 = Cell(4, merged_input_size)
             self.cells.append(cell4)
 
-    def merge_input(self, input):
-        """
-        Combines the previous output value with the current input vector.
-        """
-        if not self.output:
-            previous_output = 0
-        else:
-            previous_output = self.output
-
-        return [previous_output] + input
 
 class Cell:
     """

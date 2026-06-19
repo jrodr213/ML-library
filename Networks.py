@@ -5,12 +5,13 @@ class Base:
     Shared parent class for network types built from Node objects.
     """
 
-    def __init__(self, input_size, learning_rate):
+    def __init__(self, input_size, learning_rate, output_size=None):
         """
         Stores the common network configuration and creates its nodes.
         """
         self.input_size = input_size
         self.learning_rate = learning_rate
+        self.output_size = input_size if output_size is None else output_size
         self.nodes = []
         self.set_up()
 
@@ -48,17 +49,17 @@ class Lstm(Base):
     backpropagation updates down to those nodes.
     """
     
-    def __init__(self, input_size, learning_rate):
+    def __init__(self, input_size, learning_rate, output_size=None):
         """
         Stores the LSTM configuration and creates its nodes.
         """
-        super().__init__(input_size, learning_rate)
+        super().__init__(input_size, learning_rate, output_size)
 
     def set_up(self):
         """
         Creates the node objects used by this LSTM.
         """
-        for i in range(self.input_size):
+        for i in range(self.output_size):
             self.nodes.append(Node(i, self.input_size, self.learning_rate, LSTM=True))
 
 
@@ -69,11 +70,11 @@ class Linear(Base):
     
     def __init__(self, input_size, learning_rate, bottlenck):
         self.bottlenck = bottlenck
-        super().__init__(input_size, learning_rate)
+        super().__init__(input_size, learning_rate, bottlenck)
 
     def set_up(self):
         """
         Creates the node objects used by this linear network.
         """
-        for i in range(self.bottlenck):
+        for i in range(self.output_size):
             self.nodes.append(Node(i, self.input_size, self.learning_rate, LSTM=False))
