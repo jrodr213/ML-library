@@ -1,4 +1,5 @@
 from Networks import Lstm, Linear
+from sympy import symbols, diff
 
 class Autoencoder:
     
@@ -34,7 +35,7 @@ class Autoencoder:
                 if len(validation) >= target:
                     stopper = self.epoch_check(validation, target)
                 else:
-                    self.backpropegate()
+                    self.backpropegate(loss)
 
         return decoded
     
@@ -51,7 +52,11 @@ class Autoencoder:
                 loss.append((decoded[i] - input[i]) ** 2)
         return loss
 
-    def backpropegate(self, new_weights_encoder, new_biases_encoder, new_weights_linear, new_biases_linear, new_weights_decoder, new_biases_decoder):
+    def backpropegate(self, loss):
+        self.calculate_pd(loss)
         self.encoder.backpropegate(new_weights_encoder, new_biases_encoder)
         self.linear.backpropegate(new_weights_linear, new_biases_linear)
         self.decoder.backpropegate(new_weights_decoder, new_biases_decoder)
+
+    def calculate_pd(self, matrix, equation):
+        pass
