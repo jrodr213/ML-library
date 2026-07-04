@@ -32,12 +32,20 @@ class Node:
         self.cells = []
         self.create_node()
 
-    def node_run(self, input, previous_hidden):
+    def node_run(self, input, previous_hidden=None):
         """
         Runs the node on an input vector and updates cellstate and output.
         """
         if len(input) != self.input_size:
             raise ValueError("input must be the same size as the node input size")
+
+        if previous_hidden is None:
+            previous_hidden = [0]
+        elif not isinstance(previous_hidden, list):
+            previous_hidden = [previous_hidden]
+
+        if len(previous_hidden) != 1:
+            raise ValueError("previous_hidden must contain exactly one value")
 
         if self.cellstate is None:
             self.cellstate = 0
