@@ -72,6 +72,24 @@ class Node:
         """
         Applies weight and bias updates to every cell in this node.
         """
+        if self.LSTM and any(isinstance(value, list) for value in new_weights):
+            if len(new_weights) != len(new_bias):
+                raise ValueError("new_weights and new_bias must have the same number of gates")
+
+            if len(new_weights) > len(self.cells):
+                raise ValueError("new_weights cannot contain more gates than this node has cells")
+
+            for i in range(len(new_weights)):
+                if len(new_weights[i]) != len(self.cells[i].weights):
+                    raise ValueError(
+                        f"new_weights for gate {i} must match that gate's weight size"
+                    )
+
+                self.cells[i].weights = new_weights[i]
+                self.cells[i].bias = new_bias[i]
+
+            return
+
         for i in range(len(self.cells)):
             self.cells[i].update_weights_biases(self.learing_rate, new_weights, new_bias)       
 
