@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 *.pyc
+data/OmniAnomaly/
+outputs/smd_*/
+logs/smd_*

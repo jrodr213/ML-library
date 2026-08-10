@@ -1,14 +1,15 @@
+"""Low-level gate-cell primitives used by the handwritten network layers."""
+
 import math
 import random    
 
 
 class Node:
-    """
-    Represents one recurrent node in the ML library.
+    """Represents one standard or recurrent output node in the ML library.
 
-    A node stores the latest output value and cell state value. Each run
-    sends the merged input through either four LSTM cells or one standard
-    cell:
+    A node stores its latest output and, in LSTM mode, one cell-state value.
+    Each run sends its merged input through either four LSTM cells or one
+    standard cell:
         1: forget cell, which controls how much old cell state remains
         2: input cell, which gates new candidate state values
         3: output cell, which gates the visible node output
@@ -23,6 +24,7 @@ class Node:
         cells: The cells used by the node.
     """
     def __init__(self, node_number, input_size, learning_rate, LSTM=False):
+        """Create one standard or LSTM gate-owning node."""
         self.node_number = node_number
         self.input_size = input_size
         self.learing_rate = learning_rate
@@ -53,7 +55,7 @@ class Node:
         vector = previous_hidden + input
 
         for i in range(len(self.cells)):
-            # sets output for each cell, which is stored in the cell object
+            # Cells retain their latest activation for the node or layer above.
             self.cells[i].cell_run(vector)
 
         if not self.LSTM:
@@ -119,13 +121,11 @@ class Node:
 
 
 class Cell:
-    """
-    Represents one calculation cell in the ML library.
+    """Represents one gate or standard calculation cell in the ML library.
 
-    A cell is created with a form number and fixed input size, then receives
-    a matching list of input values when cell_run() is called. The form
-    controls how the list is processed, and the result is stored in
-    self.output.
+    A cell owns one weight vector and bias. Its form determines whether the
+    weighted input uses sigmoid, tanh, or no activation before storing the
+    latest output value.
 
     Attributes:
         form: The type of cell to create.
@@ -142,6 +142,7 @@ class Cell:
     """
 
     def __init__(self, form, input_size):      
+        """Create one gate or standard linear cell with fixed input width."""
         self.form = form
         self.input_size = input_size
         self.weights = None
@@ -174,9 +175,15 @@ class Cell:
         Updates the cell weights based on the error and learning rate.
         """
         for i in range(len(self.weights)):
-            self.weights[i] = self.weights[i] - (learning_rate * new_weights[i])
+            updated_weight = self.weights[i] - (learning_rate * new_weights[i])
+            if not math.isfinite(updated_weight):
+                raise ValueError("updated weight must be finite")
+            self.weights[i] = updated_weight
 
-        self.bias = self.bias - (learning_rate * new_bias)
+        updated_bias = self.bias - (learning_rate * new_bias)
+        if not math.isfinite(updated_bias):
+            raise ValueError("updated bias must be finite")
+        self.bias = updated_bias
 
 
     def cell_setup(self):
@@ -189,8 +196,9 @@ class Cell:
         if not isinstance(self.form, int):
             raise TypeError("form must be an integer")
         
+        limit = math.sqrt(6 / (self.input_size + 1))
         self.weights = [
-            random.uniform(-0.01, 0.01)
+            random.uniform(-limit, limit)
             for _ in range(self.input_size)
         ]
 
@@ -205,14 +213,16 @@ class Cell:
         """
         Applies the sigmoid function to one number.
         """
-        return 1 / (1 + (math.e ** (value * -1)))
+        if value >= 0:
+            return 1 / (1 + math.exp(-value))
+
+        exponent = math.exp(value)
+        return exponent / (1 + exponent)
     
     def tanh(self, value):
         """
         Applies the tanh function to one number.
         """
-        top = (math.e ** value) - (math.e ** (-1 * value))
-        bottom = (math.e ** value) + (math.e ** (-1 * value))
-        return top / bottom
+        return math.tanh(value)
 
     
